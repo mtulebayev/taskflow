@@ -33,7 +33,7 @@ test:
 
 build:
   stage: build
-  image: docker:latest
+  image: docker:cli
   variables:
     IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
   before_script:
