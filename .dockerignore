@@ -1,0 +1,13 @@
+.git
+.gitignore
+.gitattributes
+*.md
+docs/
+scripts/
+bin/
+*.exe
+*.sha256
+.env
+Dockerfile
+docker-compose.ymldocker build -t taskflow:local .
+docker images taskflow
