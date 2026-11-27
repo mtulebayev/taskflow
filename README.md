@@ -6,7 +6,7 @@ Task management REST API in Go with a full delivery pipeline:
 **GitLab CI → Container Registry → Helm → Kubernetes**.
 Every push to `main` is linted, tested, built into an image tagged with the commit SHA and deployed to the cluster automatically.
 
-**Stack:** Go · PostgreSQL · Docker · GitLab CI (self-hosted runner) · Kubernetes (kind) · Helm · Traefik · goose migrations · Prometheus metrics
+**Stack:** Go · PostgreSQL · Docker · GitLab CI (self-hosted runner) · Kubernetes (kind) · Helm · Traefik · goose migrations · Prometheus metrics · VictoriaMetrics · Grafana · vmalert (victoria-metrics-k8s-stack)
 
 ## Architecture
 
@@ -79,17 +79,47 @@ Demo data: `scripts/seed.sql` (60 sample tasks).
 
 The runner is self-hosted (WSL2, docker executor); shared runners are disabled.
 
+## Monitoring
+
+The app exposes RED metrics (rate, errors, duration) on `/metrics`.
+A `VMServiceScrape` collects them from every pod; Grafana and alert rules ship
+inside the Helm chart, so they are versioned and deployed together with the app.
+
+![Taskflow RED dashboard](docs/dashboard.png)
+
+| Alert | Condition | Severity |
+|---|---|---|
+| `TaskflowHigh5xxRate` | 5xx > 5% of requests for 5m | warning |
+| `TaskflowNoReadyPods` | no available pods for 1m | critical |
+
+Install the stack once per cluster:
+
+```bash
+helm repo add vm https://victoriametrics.github.io/helm-charts/
+helm install vmks vm/victoria-metrics-k8s-stack -n monitoring --create-namespace \
+  -f deploy/monitoring/vm-stack-values.yaml --wait --timeout 10m
+```
+
+Grafana: http://grafana.localhost (dashboard **Taskflow / RED**).
+
 ## Design decisions
 
 - **Image tag = commit SHA, required by the chart.** No implicit `latest`, every running pod is traceable to a commit via the `app.kubernetes.io/version` label.
 - **Migrations are a separate binary** in the same image, run as a Helm `pre-upgrade` hook. A failed migration stops the release before the Deployment changes. Tested: a broken DB password failed the hook while the old pods kept serving traffic, then `helm rollback`.
 - **Liveness vs readiness.** `/healthz` only checks the process, so a DB outage does not restart pods; `/readyz` pings the DB and takes the pod out of the Service instead.
 - **Graceful shutdown** on SIGTERM with a 10s timeout, within `terminationGracePeriodSeconds`.
-- **Minimal, non-root image.** Distroless `static:nonroot`, numeric UID 65532 so `runAsNonRoot` can be verified, read-only root filesystem, no privilege escalation. Image size: [~1 GB build stage → ~XX MB final].
+- **Minimal, non-root image.** Distroless `static:nonroot`, numeric UID 65532 so `runAsNonRoot` can be verified, read-only root filesystem, no privilege escalation. Image size: ~1.7 GB build stage → ~40 MB final (two static binaries on distroless).
 - **Least privilege for CI.** Deploys use a dedicated ServiceAccount bound to the `edit` role only in the `taskflow` namespace; the kubeconfig is a protected file variable scoped to the deploy environment.
 - **Traefik instead of ingress-nginx**, which was retired in March 2026.
 - **Postgres is outside the app chart.** The app release can be uninstalled without touching the database.
 - **Trade-off:** the runner mounts the host Docker socket to build images. Acceptable for a personal runner; on shared runners I would use Kaniko or Buildah.
+- **Dashboard as code.** The Grafana dashboard JSON lives in the chart and is loaded by the
+  Grafana sidecar from a labelled ConfigMap. Deleting it in the UI does nothing: it comes back from git.
+- **Latency buckets tuned for sub-5ms responses.** Default Prometheus buckets start at 5ms, so p95
+  was stuck at an interpolation artefact of 4.75ms. Buckets now start at 0.5ms; measured p95 is
+  ~1ms for `GET /tasks/{id}` and ~1.2ms for `GET /tasks` (full list, no pagination yet).
+- **Probes are not logged.** `/healthz`, `/readyz` and `/metrics` are still counted in metrics
+  but excluded from access logs, which would otherwise be mostly kubelet and scraper noise.
 
 ## Troubleshooting
 
@@ -97,7 +127,6 @@ Real problems hit while building this and how they were solved: [docs/troublesho
 
 ## Roadmap
 
-- [ ] VictoriaMetrics + Grafana dashboard (RED metrics) and an alert on 5xx rate
 - [ ] Centralized logs (VictoriaLogs / Loki)
 - [ ] Ansible playbook provisioning a k3s node
 - [ ] Keycloak (OIDC) login for Grafana
