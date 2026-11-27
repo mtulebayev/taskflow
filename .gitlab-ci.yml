@@ -1,0 +1,46 @@
+stages:
+  - lint
+  - test
+  - build
+
+default:
+  tags: [local]
+
+variables:
+  GOPATH: $CI_PROJECT_DIR/.go
+
+.go-cache:
+  cache:
+    key:
+      files: [go.sum]
+    paths: [.go/pkg/mod/]
+
+lint:
+  stage: lint
+  image: golang:1.27
+  extends: .go-cache
+  script:
+    - unformatted=$(gofmt -l $(git ls-files '*.go'))
+    - if [ -n "$unformatted" ]; then echo "Not gofmt-ed:"; echo "$unformatted"; exit 1; fi
+    - go vet ./...
+
+test:
+  stage: test
+  image: golang:1.27
+  extends: .go-cache
+  script:
+    - go test -race -count=1 ./...
+
+build:
+  stage: build
+  image: docker:latest
+  variables:
+    IMAGE: $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+  script:
+    - docker build -t "$IMAGE" -t "$CI_REGISTRY_IMAGE:latest" .
+    - docker push "$IMAGE"
+    - docker push "$CI_REGISTRY_IMAGE:latest"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
