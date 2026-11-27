@@ -1,0 +1,38 @@
+replicaCount: 2
+
+image:
+  repository: registry.gitlab.com/mtulebayev/taskflow
+  tag: ""                 # обязательный: передаётся при установке (SHA коммита)
+  pullPolicy: IfNotPresent
+
+config:
+  PORT: "8080"
+
+database:
+  existingSecret: taskflow-db
+  secretKey: DATABASE_URL
+
+migrations:
+  enabled: true
+
+service:
+  port: 80
+
+ingress:
+  enabled: true
+  className: traefik
+  host: taskflow.localhost
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    memory: 128Mi
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 65532
+  runAsGroup: 65532
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
