@@ -1,0 +1,22 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: taskflow-migrate
+  namespace: taskflow
+spec:
+  backoffLimit: 3                 # до 3 повторов, если миграция упала
+  ttlSecondsAfterFinished: 600    # через 10 минут после завершения Job удалится сам
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: registry.gitlab.com/mtulebayev/taskflow:latest
+          command: ["/app/migrate"]   
+          args: ["up"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: taskflow-db
+                  key: DATABASE_URL
