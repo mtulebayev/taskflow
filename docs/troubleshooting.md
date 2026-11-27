@@ -39,3 +39,15 @@ while the systemd service reads `/etc/gitlab-runner/config.toml`.
 were installed only on Windows.
 
 **Fix:** install the Go extension "in WSL: Ubuntu", then `Go: Install/Update Tools`.
+
+## Pods stuck in CreateContainerConfigError
+
+**Symptom:** `kubectl get pods` shows `CreateContainerConfigError`, Traefik returns
+`503 no available server`.
+
+**Cause:** `runAsNonRoot: true` in the pod securityContext, but the image sets
+`USER nonroot:nonroot` (a name, not a UID). Kubelet cannot verify the user is non-root
+without a numeric UID, so it refuses to start the container.
+
+**Fix:** use a numeric user: `USER 65532:65532` in the Dockerfile and/or
+`runAsUser: 65532` in the securityContext.  
