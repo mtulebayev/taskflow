@@ -9,5 +9,4 @@ bin/
 *.sha256
 .env
 Dockerfile
-docker-compose.ymldocker build -t taskflow:local .
-docker images taskflow
+docker-compose.yml
