@@ -1,0 +1,16 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMServiceScrape
+metadata:
+  name: {{ include "taskflow.fullname" . }}
+  labels:
+    {{- include "taskflow.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "taskflow.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+{{- end }}

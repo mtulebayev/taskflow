@@ -1,0 +1,28 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: {{ include "taskflow.fullname" . }}
+  labels:
+    {{- include "taskflow.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: taskflow
+      rules:
+        - alert: TaskflowHigh5xxRate
+          expr: |
+            sum(rate(http_requests_total{namespace="taskflow", route!~"GET /(healthz|readyz|metrics)", status=~"5.."}[5m]))
+              / sum(rate(http_requests_total{namespace="taskflow", route!~"GET /(healthz|readyz|metrics)"}[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "taskflow: more than 5% of requests fail with 5xx"
+        - alert: TaskflowNoReadyPods
+          expr: kube_deployment_status_replicas_available{namespace="taskflow", deployment="taskflow"} < 1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "taskflow: no ready pods, service is down"
+{{- end }}

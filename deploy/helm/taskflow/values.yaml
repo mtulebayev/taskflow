@@ -36,3 +36,6 @@ securityContext:
   runAsGroup: 65532
   allowPrivilegeEscalation: false
   readOnlyRootFilesystem: true
+
+metrics:
+  enabled: true   

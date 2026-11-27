@@ -1,0 +1,12 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "taskflow.fullname" . }}-dashboard
+  labels:
+    {{- include "taskflow.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  taskflow.json: |-
+{{ .Files.Get "dashboards/taskflow.json" | indent 4 }}
+{{- end }}

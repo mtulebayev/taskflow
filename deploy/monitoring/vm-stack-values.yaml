@@ -1,0 +1,26 @@
+# Lightweight setup for a local kind cluster
+kubeEtcd:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeControllerManager:
+  enabled: false
+
+vmsingle:
+  spec:
+    retentionPeriod: "7d"
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+      limits: { memory: 512Mi }
+
+grafana:
+  adminPassword: admin
+  ingress:
+    enabled: true
+    ingressClassName: traefik
+    hosts:
+      - grafana.localhost
+  sidecar:
+    dashboards:
+      enabled: true
+      searchNamespace: ALL 
