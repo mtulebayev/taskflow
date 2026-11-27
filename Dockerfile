@@ -12,6 +12,6 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/taskflo
 
 FROM gcr.io/distroless/static:nonroot
 COPY --from=build /out/taskflow /out/migrate /app/
-USER nonroot:nonroot
+USER 65532:65532
 EXPOSE 8080
 ENTRYPOINT ["/app/taskflow"]
