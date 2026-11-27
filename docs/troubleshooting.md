@@ -51,3 +51,25 @@ without a numeric UID, so it refuses to start the container.
 
 **Fix:** use a numeric user: `USER 65532:65532` in the Dockerfile and/or
 `runAsUser: 65532` in the securityContext.  
+
+## Failed release and rollback (planned experiment)
+
+**What I did:** ran `helm upgrade` pointing the app to a secret with a wrong
+database password, to see what happens to traffic during a broken release.
+
+**What happened:**
+- the `pre-upgrade` migration Job failed with `password authentication failed
+  (SQLSTATE 28P01)`, retried 3 times (`backoffLimit: 3`) with growing back-off;
+- Helm marked the release `failed` and **never touched the Deployment**;
+- the old pods kept serving: `curl /tasks/1` answered normally the whole time.
+
+**Recovery:** `helm rollback taskflow <revision> --wait`, then deleted the broken
+secret and the failed Job.
+
+**Gotcha:** `helm rollback` without a revision number goes to the *previous
+successful* revision. In my case that was a manual `helm upgrade` made outside
+CI, so the cluster drifted from what is in git. Fixed by rolling back to the
+revision deployed by CI (`helm history` → `helm rollback taskflow 5`) and checking
+`helm get values`. Lessons: always pass the revision explicitly, and avoid manual
+upgrades that bypass CI — this drift is exactly what GitOps tools (Argo CD, Flux)
+prevent.
