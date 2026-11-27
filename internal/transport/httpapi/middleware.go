@@ -48,12 +48,16 @@ func (h *Handler) observe(next http.Handler) http.Handler {
 		httpRequests.WithLabelValues(route, strconv.Itoa(rec.status)).Inc()
 		httpDuration.WithLabelValues(route).Observe(elapsed.Seconds())
 
-		h.log.Info("request",
-			"method", r.Method,
-			"path", r.URL.Path,
-			"route", route,
-			"status", rec.status,
-			"duration_ms", elapsed.Milliseconds(),
-		)
+		switch route {
+		case "GET /healthz", "GET /readyz", "GET /metrics":
+		default:
+			h.log.Info("request",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"route", route,
+				"status", rec.status,
+				"duration_ms", float64(time.Since(start).Microseconds())/1000,
+			)
+		}
 	})
 }
