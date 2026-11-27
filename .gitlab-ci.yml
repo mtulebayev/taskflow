@@ -2,6 +2,7 @@ stages:
   - lint
   - test
   - build
+  - deploy
 
 default:
   tags: [local]
@@ -42,5 +43,22 @@ build:
     - docker build -t "$IMAGE" -t "$CI_REGISTRY_IMAGE:latest" .
     - docker push "$IMAGE"
     - docker push "$CI_REGISTRY_IMAGE:latest"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+deploy:
+  stage: deploy
+  image:
+    name: alpine/helm:latest
+    entrypoint: [""]
+  environment:
+    name: local-kind
+    url: http://taskflow.localhost
+  script:
+    - helm lint deploy/helm/taskflow --set image.tag=$CI_COMMIT_SHORT_SHA
+    - helm upgrade --install taskflow deploy/helm/taskflow
+        --namespace taskflow
+        --set image.tag=$CI_COMMIT_SHORT_SHA
+        --wait --timeout 5m
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
